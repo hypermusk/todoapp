@@ -211,7 +211,7 @@ type UserService_CreateTodo_Params struct {
 	This   UserServiceData
 	Params struct {
 		ListId string
-		Name string
+		Content string
 	}
 }
 
@@ -246,7 +246,7 @@ func UserService_CreateTodo(w http.ResponseWriter, r *http.Request) {
 		enc.Encode(result)
 		return
 	}
-	result.Err = s.CreateTodo(p.Params.ListId, p.Params.Name)
+	result.Err = s.CreateTodo(p.Params.ListId, p.Params.Content)
 	if result.Err != nil {
 		result.Err = NewError(result.Err)
 	}
@@ -260,7 +260,7 @@ func UserService_CreateTodo(w http.ResponseWriter, r *http.Request) {
 type UserService_DoneTodo_Params struct {
 	This   UserServiceData
 	Params struct {
-		TodoId string
+		TodoItemId string
 	}
 }
 
@@ -295,7 +295,7 @@ func UserService_DoneTodo(w http.ResponseWriter, r *http.Request) {
 		enc.Encode(result)
 		return
 	}
-	result.Err = s.DoneTodo(p.Params.TodoId)
+	result.Err = s.DoneTodo(p.Params.TodoItemId)
 	if result.Err != nil {
 		result.Err = NewError(result.Err)
 	}
@@ -309,7 +309,7 @@ func UserService_DoneTodo(w http.ResponseWriter, r *http.Request) {
 type UserService_UndoneTodo_Params struct {
 	This   UserServiceData
 	Params struct {
-		TodoId string
+		TodoItemId string
 	}
 }
 
@@ -344,7 +344,7 @@ func UserService_UndoneTodo(w http.ResponseWriter, r *http.Request) {
 		enc.Encode(result)
 		return
 	}
-	result.Err = s.UndoneTodo(p.Params.TodoId)
+	result.Err = s.UndoneTodo(p.Params.TodoItemId)
 	if result.Err != nil {
 		result.Err = NewError(result.Err)
 	}

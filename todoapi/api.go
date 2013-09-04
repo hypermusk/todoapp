@@ -20,7 +20,7 @@ type UserService interface {
 	GetTodoLists() (list []*TodoList, err error)
 	GetTodoItems(listId string) (list []*TodoItem, err error)
 	PutTodoList(name string) (err error)
-	CreateTodo(listId string, name string) (err error)
-	DoneTodo(todoId string) (err error)
-	UndoneTodo(todoId string) (err error)
+	CreateTodo(listId string, content string) (err error)
+	DoneTodo(todoItemId string) (err error)
+	UndoneTodo(todoItemId string) (err error)
 }

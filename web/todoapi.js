@@ -46,22 +46,22 @@
 		return;
 	}
 
-	api.UserService.prototype.CreateTodo = function(listId, name, callback) {
-		api.rpc("/UserService/CreateTodo.json", {"This": this, "Params": { "ListId": listId, "Name": name }}, function(data){
+	api.UserService.prototype.CreateTodo = function(listId, content, callback) {
+		api.rpc("/UserService/CreateTodo.json", {"This": this, "Params": { "ListId": listId, "Content": content }}, function(data){
 			callback(data.Err)
 		});
 		return;
 	}
 
-	api.UserService.prototype.DoneTodo = function(todoId, callback) {
-		api.rpc("/UserService/DoneTodo.json", {"This": this, "Params": { "TodoId": todoId }}, function(data){
+	api.UserService.prototype.DoneTodo = function(todoItemId, callback) {
+		api.rpc("/UserService/DoneTodo.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
 			callback(data.Err)
 		});
 		return;
 	}
 
-	api.UserService.prototype.UndoneTodo = function(todoId, callback) {
-		api.rpc("/UserService/UndoneTodo.json", {"This": this, "Params": { "TodoId": todoId }}, function(data){
+	api.UserService.prototype.UndoneTodo = function(todoItemId, callback) {
+		api.rpc("/UserService/UndoneTodo.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
 			callback(data.Err)
 		});
 		return;
