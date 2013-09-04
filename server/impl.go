@@ -46,7 +46,7 @@ func (u *UserServiceImpl) GetTodoItems(listId string) (list []*todoapi.TodoItem,
 	id, _ := strconv.ParseInt(listId, 10, 64)
 	withdb(func(db *sql.DB) {
 		list = make([]*todoapi.TodoItem, 0)
-		rows, err := db.Query("SELECT id, content FROM todo_items WHERE todo_list_id=$1 ORDER BY id ASC", id)
+		rows, err := db.Query("SELECT id, content FROM todo_items WHERE todo_list_id=$1 ORDER BY id DESC", id)
 		panicIf(err)
 
 		for rows.Next() {
@@ -66,6 +66,12 @@ func (u *UserServiceImpl) PutTodoList(name string) (err error) {
 }
 
 func (u *UserServiceImpl) CreateTodo(listId string, name string) (err error) {
+	lid, _ := strconv.ParseInt(listId, 10, 64)
+	withdb(func(db *sql.DB) {
+		_, err := db.Exec("INSERT INTO todo_items (content, todo_list_id) VALUES ($1, $2)", name, lid)
+		panicIf(err)
+
+	})
 	return
 }
 
