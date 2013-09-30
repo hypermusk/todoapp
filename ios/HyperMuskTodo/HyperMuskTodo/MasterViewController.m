@@ -9,9 +9,13 @@
 #import "MasterViewController.h"
 
 #import "DetailViewController.h"
+#import "TodoListViewController.h"
+#import "AddTodoViewController.h"
+
 
 @interface MasterViewController () {
-    NSMutableArray *_objects;
+    NSArray *_objects;
+    UserService *userService;
 }
 @end
 
@@ -26,14 +30,73 @@
     [super awakeFromNib];
 }
 
+- (void)refillRows
+{
+    UserServiceGetTodoItemsResults *itemsResult = [userService GetTodoItems:[self selectedList].Id];
+    
+    if (itemsResult.Err != NULL) {
+        NSLog(@"GetTodoItems Err: %@", itemsResult.Err);
+    }
+    
+    _objects = itemsResult.List;
+    [[self tableView] reloadData];
+}
+
+- (IBAction)done:(UIStoryboardSegue *)segue
+{
+    NSLog(@"[segue identifier] = %@", [segue identifier]);
+ 
+    if ([[segue identifier] isEqualToString:@"ReturnInput"]) {
+        AddTodoViewController *addController = [segue sourceViewController];
+        NSString *newTodoContent = [addController todoContent].text;
+        [userService CreateTodo:[self selectedList].Id content:newTodoContent];
+    }
+    
+//    if ([[segue identifier] isEqualToString:@"selectTodoList"]) {
+//    }
+
+    [self refillRows];
+
+}
+
+- (IBAction)cancel:(UIStoryboardSegue *)segue
+{
+    NSLog(@"[segue identifier] = %@", [segue identifier]);
+}
+
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-	// Do any additional setup after loading the view, typically from a nib.
-    self.navigationItem.leftBarButtonItem = self.editButtonItem;
+    
+    [[Todoapi get] setBaseURL:@"http://localhost:9000/api"];
+    [[Todoapi get] setVerbose:YES];
+    AppService *appService = [AppService alloc];
+    userService = [appService GetUserService:@"admin@example.com" password:@"nimda"];
+    
+    UserServiceGetTodoListsResults *r = [userService GetTodoLists];
+    
+    if (r.Err != NULL) {
+        NSLog(@"GetTodoLists Err: %@", r.Err);
+        return;
+    }
+    
+    if ([r.List count] == 0) {
+        NSLog(@"List size is zero.");
+        return;
+    }
+    
+    [self setSelectedList:[r.List objectAtIndex:0]];
+    
+    [self refillRows];
+    
 
-    UIBarButtonItem *addButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(insertNewObject:)];
-    self.navigationItem.rightBarButtonItem = addButton;
+    
+	// Do any additional setup after loading the view, typically from a nib.
+//    self.navigationItem.leftBarButtonItem = self.editButtonItem;
+//
+//    UIBarButtonItem *addButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(insertNewObject:)];
+//    self.navigationItem.rightBarButtonItem = addButton;
     self.detailViewController = (DetailViewController *)[[self.splitViewController.viewControllers lastObject] topViewController];
 }
 
@@ -43,15 +106,15 @@
     // Dispose of any resources that can be recreated.
 }
 
-- (void)insertNewObject:(id)sender
-{
-    if (!_objects) {
-        _objects = [[NSMutableArray alloc] init];
-    }
-    [_objects insertObject:[NSDate date] atIndex:0];
-    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
-    [self.tableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
-}
+//- (void)insertNewObject:(id)sender
+//{
+//    if (!_objects) {
+//        _objects = [[NSMutableArray alloc] init];
+//    }
+//    [_objects insertObject:[NSDate date] atIndex:0];
+//    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
+//    [self.tableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+//}
 
 #pragma mark - Table View
 
@@ -69,8 +132,8 @@
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell" forIndexPath:indexPath];
 
-    NSDate *object = _objects[indexPath.row];
-    cell.textLabel.text = [object description];
+    TodoItem *object = _objects[indexPath.row];
+    cell.textLabel.text = object.Content;
     return cell;
 }
 
@@ -83,8 +146,8 @@
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
 {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        [_objects removeObjectAtIndex:indexPath.row];
-        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+//        [_objects removeObjectAtIndex:indexPath.row];
+//        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
     } else if (editingStyle == UITableViewCellEditingStyleInsert) {
         // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view.
     }
@@ -121,6 +184,14 @@
         NSDate *object = _objects[indexPath.row];
         [[segue destinationViewController] setDetailItem:object];
     }
+    
+    if ([[segue identifier] isEqualToString:@"showTodoList"]) {
+        NSLog(@"[segue destinationViewController] = %@", [segue destinationViewController]);
+        TodoListViewController *todoListViewController = (TodoListViewController *)[[segue destinationViewController] topViewController];
+        [todoListViewController setUserService:userService];
+    }
+    
+
 }
 
 @end
