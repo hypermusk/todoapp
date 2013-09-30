@@ -32,6 +32,8 @@
 
 - (void)refillRows
 {
+    
+    [[self navigationItem] setTitle:[self selectedList].Name];
     UserServiceGetTodoItemsResults *itemsResult = [userService GetTodoItems:[self selectedList].Id];
     
     if (itemsResult.Err != NULL) {
