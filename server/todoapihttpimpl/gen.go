@@ -5,13 +5,20 @@ package todoapihttpimpl
 
 import (
 	"time"
+	"io"
+	"strings"
 	"encoding/json"
+	"encoding/base64"
 	"github.com/hypermusk/todoapp/todoapi"
 	"github.com/hypermusk/todoapp/server"
 	"net/http"
+	"log"
 )
 
 var _ = time.Sunday
+var _ = base64.StdEncoding
+
+const StreamHTTPHeaderFieldName = "X-HyperMuskStreamParams"
 
 type CodeError interface {
 	Code() string
@@ -46,6 +53,7 @@ func AddToMux(prefix string, mux *http.ServeMux) {
 	mux.HandleFunc(prefix+"/UserService/CreateTodo.json", UserService_CreateTodo)
 	mux.HandleFunc(prefix+"/UserService/DoneTodo.json", UserService_DoneTodo)
 	mux.HandleFunc(prefix+"/UserService/UndoneTodo.json", UserService_UndoneTodo)
+	mux.HandleFunc(prefix+"/UserService/UploadFile.json", UserService_UploadFile)
 	return
 }
 
@@ -70,15 +78,34 @@ type UserService_GetTodoLists_Results struct {
 }
 
 func UserService_GetTodoLists(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	jsonpCallback := r.URL.Query().Get("callback")
+	if  jsonpCallback != "" {
+		body = strings.NewReader(r.URL.Query().Get("data"))
+		io.WriteString(w, jsonpCallback + "(")
+		defer io.WriteString(w, ")")
+	} else {
+		if r.Body == nil {
+			panic("no body")
+		}
+		body = r.Body
+	}
+
+	defer r.Body.Close()
 
 	var p UserService_GetTodoLists_Params
-	if r.Body == nil {
-		panic("no body")
-	}
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+
+	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_GetTodoLists_Results
 	enc := json.NewEncoder(w)
@@ -120,15 +147,34 @@ type UserService_GetTodoItems_Results struct {
 }
 
 func UserService_GetTodoItems(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	jsonpCallback := r.URL.Query().Get("callback")
+	if  jsonpCallback != "" {
+		body = strings.NewReader(r.URL.Query().Get("data"))
+		io.WriteString(w, jsonpCallback + "(")
+		defer io.WriteString(w, ")")
+	} else {
+		if r.Body == nil {
+			panic("no body")
+		}
+		body = r.Body
+	}
+
+	defer r.Body.Close()
 
 	var p UserService_GetTodoItems_Params
-	if r.Body == nil {
-		panic("no body")
-	}
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+
+	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_GetTodoItems_Results
 	enc := json.NewEncoder(w)
@@ -169,15 +215,34 @@ type UserService_PutTodoList_Results struct {
 }
 
 func UserService_PutTodoList(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	jsonpCallback := r.URL.Query().Get("callback")
+	if  jsonpCallback != "" {
+		body = strings.NewReader(r.URL.Query().Get("data"))
+		io.WriteString(w, jsonpCallback + "(")
+		defer io.WriteString(w, ")")
+	} else {
+		if r.Body == nil {
+			panic("no body")
+		}
+		body = r.Body
+	}
+
+	defer r.Body.Close()
 
 	var p UserService_PutTodoList_Params
-	if r.Body == nil {
-		panic("no body")
-	}
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+
+	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_PutTodoList_Results
 	enc := json.NewEncoder(w)
@@ -219,15 +284,34 @@ type UserService_CreateTodo_Results struct {
 }
 
 func UserService_CreateTodo(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	jsonpCallback := r.URL.Query().Get("callback")
+	if  jsonpCallback != "" {
+		body = strings.NewReader(r.URL.Query().Get("data"))
+		io.WriteString(w, jsonpCallback + "(")
+		defer io.WriteString(w, ")")
+	} else {
+		if r.Body == nil {
+			panic("no body")
+		}
+		body = r.Body
+	}
+
+	defer r.Body.Close()
 
 	var p UserService_CreateTodo_Params
-	if r.Body == nil {
-		panic("no body")
-	}
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+
+	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_CreateTodo_Results
 	enc := json.NewEncoder(w)
@@ -268,15 +352,34 @@ type UserService_DoneTodo_Results struct {
 }
 
 func UserService_DoneTodo(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	jsonpCallback := r.URL.Query().Get("callback")
+	if  jsonpCallback != "" {
+		body = strings.NewReader(r.URL.Query().Get("data"))
+		io.WriteString(w, jsonpCallback + "(")
+		defer io.WriteString(w, ")")
+	} else {
+		if r.Body == nil {
+			panic("no body")
+		}
+		body = r.Body
+	}
+
+	defer r.Body.Close()
 
 	var p UserService_DoneTodo_Params
-	if r.Body == nil {
-		panic("no body")
-	}
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+
+	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_DoneTodo_Results
 	enc := json.NewEncoder(w)
@@ -317,15 +420,34 @@ type UserService_UndoneTodo_Results struct {
 }
 
 func UserService_UndoneTodo(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	jsonpCallback := r.URL.Query().Get("callback")
+	if  jsonpCallback != "" {
+		body = strings.NewReader(r.URL.Query().Get("data"))
+		io.WriteString(w, jsonpCallback + "(")
+		defer io.WriteString(w, ")")
+	} else {
+		if r.Body == nil {
+			panic("no body")
+		}
+		body = r.Body
+	}
+
+	defer r.Body.Close()
 
 	var p UserService_UndoneTodo_Params
-	if r.Body == nil {
-		panic("no body")
-	}
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+
+	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_UndoneTodo_Results
 	enc := json.NewEncoder(w)
@@ -353,6 +475,64 @@ func UserService_UndoneTodo(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+type UserService_UploadFile_Params struct {
+	This   UserServiceData
+	Params struct {
+		TodoItemId string
+	}
+}
+
+type UserService_UploadFile_Results struct {
+	Err error
+
+}
+
+func UserService_UploadFile(w http.ResponseWriter, r *http.Request) {
+	startAt := time.Now()
+	log.Printf("Started %s \"%s\" for %s at %s\n", r.Method, r.RequestURI, r.RemoteAddr, startAt.String())
+	defer func() {
+		spent := time.Now().Sub(startAt) / time.Millisecond
+		log.Printf("Completed \"%s\" in %d ms\n\n", r.RequestURI, spent)
+	}()
+
+	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	var body io.Reader
+
+	body = base64.NewDecoder(base64.StdEncoding, strings.NewReader(r.Header.Get(StreamHTTPHeaderFieldName)))
+
+	defer r.Body.Close()
+
+	var p UserService_UploadFile_Params
+
+	dec := json.NewDecoder(body)
+	err := dec.Decode(&p)
+	var result UserService_UploadFile_Results
+	enc := json.NewEncoder(w)
+	if err != nil {
+		result.Err = NewError(err)
+		enc.Encode(result)
+		return
+	}
+
+	s, err := appservice.GetUserService(p.This.Email, p.This.Password)
+
+	if err != nil {
+		result.Err = NewError(err)
+		enc.Encode(result)
+		return
+	}
+	result.Err = s.UploadFile(p.Params.TodoItemId, r.Body)
+	if result.Err != nil {
+		result.Err = NewError(result.Err)
+	}
+	err = enc.Encode(result)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 
 
 
@@ -360,10 +540,6 @@ var appservice todoapi.AppService = server.DefaultAppService
 
 type AppServiceData struct {
 }
-
-
-
-
 
 
 

@@ -33,14 +33,14 @@
 - (void)refillRows
 {
     
-    [[self navigationItem] setTitle:[self selectedList].Name];
-    UserServiceGetTodoItemsResults *itemsResult = [userService GetTodoItems:[self selectedList].Id];
+    [[self navigationItem] setTitle:[self selectedList].name];
+    UserServiceGetTodoItemsResults *itemsResult = [userService getTodoItems:[self selectedList].id];
     
-    if (itemsResult.Err != NULL) {
-        NSLog(@"GetTodoItems Err: %@", itemsResult.Err);
+    if (itemsResult.err != NULL) {
+        NSLog(@"GetTodoItems Err: %@", itemsResult.err);
     }
     
-    _objects = itemsResult.List;
+    _objects = itemsResult.list;
     [[self tableView] reloadData];
 }
 
@@ -51,11 +51,22 @@
     if ([[segue identifier] isEqualToString:@"ReturnInput"]) {
         AddTodoViewController *addController = [segue sourceViewController];
         NSString *newTodoContent = [addController todoContent].text;
-        [userService CreateTodo:[self selectedList].Id content:newTodoContent];
+        [userService createTodo:[self selectedList].id content:newTodoContent];
     }
+    
+    //[userService uploadFile:@"111" stream:[NSInputStream inputStreamWithFileAtPath:@"/Users/sunfmin/Downloads/Qortex-card-CN-Felix_Sun.pdf"]];
     
 //    if ([[segue identifier] isEqualToString:@"selectTodoList"]) {
 //    }
+    
+    [userService uploadFile:@"222" stream:[NSInputStream inputStreamWithFileAtPath:@"/Users/sunfmin/Downloads/Qortex-card-CN-Felix_Sun.pdf"] success: ^(NSError *error) {
+        NSLog(@"Success! %@", error);
+    }
+    failure:^(NSError *error) {
+        NSLog(@"Failure! %@", error);
+    }];
+    
+    NSLog(@"Must Before Success!");
 
     [self refillRows];
 
@@ -74,21 +85,21 @@
     [[Todoapi get] setBaseURL:@"http://localhost:9000/api"];
     [[Todoapi get] setVerbose:YES];
     AppService *appService = [AppService alloc];
-    userService = [appService GetUserService:@"admin@example.com" password:@"nimda"];
+    userService = [appService getUserService:@"admin@example.com" password:@"nimda"];
     
-    UserServiceGetTodoListsResults *r = [userService GetTodoLists];
+    UserServiceGetTodoListsResults *r = [userService getTodoLists];
     
-    if (r.Err != NULL) {
-        NSLog(@"GetTodoLists Err: %@", r.Err);
+    if (r.err != NULL) {
+        NSLog(@"GetTodoLists Err: %@", r.err);
         return;
     }
     
-    if ([r.List count] == 0) {
+    if ([r.list count] == 0) {
         NSLog(@"List size is zero.");
         return;
     }
     
-    [self setSelectedList:[r.List objectAtIndex:0]];
+    [self setSelectedList:[r.list objectAtIndex:0]];
     
     [self refillRows];
     
@@ -135,7 +146,7 @@
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell" forIndexPath:indexPath];
 
     TodoItem *object = _objects[indexPath.row];
-    cell.textLabel.text = object.Content;
+    cell.textLabel.text = object.content;
     return cell;
 }
 

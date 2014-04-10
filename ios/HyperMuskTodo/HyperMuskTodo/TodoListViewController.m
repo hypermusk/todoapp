@@ -31,13 +31,13 @@
 {
     [super viewDidLoad];
     NSLog(@"[TodoListViewController viewDidLoad] userService: %@", [self userService]);
-    UserServiceGetTodoListsResults *r = [[self userService] GetTodoLists];
+    UserServiceGetTodoListsResults *r = [[self userService] getTodoLists];
 
-    if (r.Err != NULL) {
-        NSLog(@"Err: %@", r.Err);
+    if (r.err != NULL) {
+        NSLog(@"Err: %@", r.err);
         return;
     }
-    _todoLists = r.List;
+    _todoLists = r.list;
 
     // Uncomment the following line to preserve selection between presentations.
     // self.clearsSelectionOnViewWillAppear = NO;
@@ -75,7 +75,7 @@
     
     
     TodoList *list = _todoLists[indexPath.row];
-    cell.textLabel.text = list.Name;
+    cell.textLabel.text = list.name;
     
     return cell;
 }

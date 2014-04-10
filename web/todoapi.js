@@ -17,64 +17,137 @@
 			callback(data);
 		});
 	};
+	api.rpcjsonp = function(endpoint, input, callback) {
+		var methodUrl = api.baseurl + endpoint;
+		var message = JSON.stringify(input);
+		var req = $.ajax({
+			type: "GET",
+			url: methodUrl,
+			crossDomain: true,
+			contentType:"application/javascript; charset=utf-8",
+			dataType:"jsonp",
+			data: "data="+message
+		});
+		req.done(function(data, textStatus, jqXHR) {
+			callback(data);
+		});
+	};
 })( window.todoapi = window.todoapi || {}, jQuery);
 
 
 
 (function( api, undefined ) {
+	api.jsonp = {}
 
 	api.UserService = function() {};
+	api.jsonp.UserService = function() {};
 
 	api.UserService.prototype.GetTodoLists = function(callback) {
 		api.rpc("/UserService/GetTodoLists.json", {"This": this, "Params": {  }}, function(data){
 			callback(data.List, data.Err)
 		});
 		return;
-	}
+	};
+	api.jsonp.UserService.prototype.GetTodoLists = function(callback) {
+		api.rpcjsonp("/UserService/GetTodoLists.json", {"This": this, "Params": {  }}, function(data){
+			callback(data.List, data.Err)
+		});
+		return;
+	};
 
 	api.UserService.prototype.GetTodoItems = function(listId, callback) {
 		api.rpc("/UserService/GetTodoItems.json", {"This": this, "Params": { "ListId": listId }}, function(data){
 			callback(data.List, data.Err)
 		});
 		return;
-	}
+	};
+	api.jsonp.UserService.prototype.GetTodoItems = function(listId, callback) {
+		api.rpcjsonp("/UserService/GetTodoItems.json", {"This": this, "Params": { "ListId": listId }}, function(data){
+			callback(data.List, data.Err)
+		});
+		return;
+	};
 
 	api.UserService.prototype.PutTodoList = function(name, callback) {
 		api.rpc("/UserService/PutTodoList.json", {"This": this, "Params": { "Name": name }}, function(data){
 			callback(data.Err)
 		});
 		return;
-	}
+	};
+	api.jsonp.UserService.prototype.PutTodoList = function(name, callback) {
+		api.rpcjsonp("/UserService/PutTodoList.json", {"This": this, "Params": { "Name": name }}, function(data){
+			callback(data.Err)
+		});
+		return;
+	};
 
 	api.UserService.prototype.CreateTodo = function(listId, content, callback) {
 		api.rpc("/UserService/CreateTodo.json", {"This": this, "Params": { "ListId": listId, "Content": content }}, function(data){
 			callback(data.Err)
 		});
 		return;
-	}
+	};
+	api.jsonp.UserService.prototype.CreateTodo = function(listId, content, callback) {
+		api.rpcjsonp("/UserService/CreateTodo.json", {"This": this, "Params": { "ListId": listId, "Content": content }}, function(data){
+			callback(data.Err)
+		});
+		return;
+	};
 
 	api.UserService.prototype.DoneTodo = function(todoItemId, callback) {
 		api.rpc("/UserService/DoneTodo.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
 			callback(data.Err)
 		});
 		return;
-	}
+	};
+	api.jsonp.UserService.prototype.DoneTodo = function(todoItemId, callback) {
+		api.rpcjsonp("/UserService/DoneTodo.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
+			callback(data.Err)
+		});
+		return;
+	};
 
 	api.UserService.prototype.UndoneTodo = function(todoItemId, callback) {
 		api.rpc("/UserService/UndoneTodo.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
 			callback(data.Err)
 		});
 		return;
-	}
+	};
+	api.jsonp.UserService.prototype.UndoneTodo = function(todoItemId, callback) {
+		api.rpcjsonp("/UserService/UndoneTodo.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
+			callback(data.Err)
+		});
+		return;
+	};
+
+	api.UserService.prototype.UploadFile = function(todoItemId, callback) {
+		api.rpc("/UserService/UploadFile.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
+			callback(data.Err)
+		});
+		return;
+	};
+	api.jsonp.UserService.prototype.UploadFile = function(todoItemId, callback) {
+		api.rpcjsonp("/UserService/UploadFile.json", {"This": this, "Params": { "TodoItemId": todoItemId }}, function(data){
+			callback(data.Err)
+		});
+		return;
+	};
 
 	api.AppService = function() {};
+	api.jsonp.AppService = function() {};
 
 	api.AppService.prototype.GetUserService = function(email, password) {
 		var r = new api.UserService();
 		r.Email = email;
 		r.Password = password;
 		return r;
-	}
+	};
+	api.jsonp.AppService.prototype.GetUserService = function(email, password) {
+		var r = new api.jsonp.UserService();
+		r.Email = email;
+		r.Password = password;
+		return r;
+	};
 
 
 }( window.todoapi = window.todoapi || {} ));

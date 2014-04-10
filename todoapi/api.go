@@ -1,5 +1,9 @@
 package todoapi
 
+import (
+	"io"
+)
+
 type TodoList struct {
 	Id   string
 	Name string
@@ -23,4 +27,5 @@ type UserService interface {
 	CreateTodo(listId string, content string) (err error)
 	DoneTodo(todoItemId string) (err error)
 	UndoneTodo(todoItemId string) (err error)
+	UploadFile(todoItemId string, file io.Reader) (err error)
 }

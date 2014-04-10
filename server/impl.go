@@ -6,6 +6,8 @@ import (
 	"fmt"
 	_ "github.com/bmizerany/pq"
 	"github.com/hypermusk/todoapp/todoapi"
+	"io"
+	"os"
 	"strconv"
 )
 
@@ -80,6 +82,12 @@ func (u *UserServiceImpl) DoneTodo(todoId string) (err error) {
 }
 
 func (u *UserServiceImpl) UndoneTodo(todoId string) (err error) {
+	return
+}
+
+func (u *UserServiceImpl) UploadFile(todoItemId string, file io.Reader) (err error) {
+	fmt.Println("todoItemId: ", todoItemId)
+	io.Copy(os.Stdout, file)
 	return
 }
 

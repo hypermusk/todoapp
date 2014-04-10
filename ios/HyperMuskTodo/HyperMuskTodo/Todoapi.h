@@ -5,8 +5,9 @@
 
 
 @interface Todoapi : NSObject
-@property (nonatomic, strong) NSString * BaseURL;
-@property (nonatomic, assign) BOOL Verbose;
+@property (nonatomic, strong) NSString * baseURL;
+@property (nonatomic, assign) BOOL verbose;
+@property (nonatomic, assign) NSTimeInterval requestTimeoutInterval;
 + (Todoapi *) get;
 
 @end
@@ -14,10 +15,10 @@
 
 
 // --- TodoList ---
-@interface TodoList : NSObject
+@interface TodoList : NSObject<NSCoding>
 
-@property (nonatomic, strong) NSString * Id;
-@property (nonatomic, strong) NSString * Name;
+@property (nonatomic, strong) NSString * id;
+@property (nonatomic, strong) NSString * name;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -25,12 +26,12 @@
 @end
 
 // --- TodoItem ---
-@interface TodoItem : NSObject
+@interface TodoItem : NSObject<NSCoding>
 
-@property (nonatomic, strong) NSString * Id;
-@property (nonatomic, strong) NSString * ListId;
-@property (nonatomic, strong) NSString * Content;
-@property (nonatomic, assign) BOOL Done;
+@property (nonatomic, strong) NSString * id;
+@property (nonatomic, strong) NSString * listId;
+@property (nonatomic, strong) NSString * content;
+@property (nonatomic, assign) BOOL done;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -39,7 +40,6 @@
 
 
 // === Interfaces ===
-
 
 // --- GetTodoListsParams ---
 @interface UserServiceGetTodoListsParams : NSObject
@@ -53,8 +53,8 @@
 // --- GetTodoListsResults ---
 @interface UserServiceGetTodoListsResults : NSObject
 
-@property (nonatomic, strong) NSArray * List;
-@property (nonatomic, strong) NSError * Err;
+@property (nonatomic, strong) NSArray * list;
+@property (nonatomic, strong) NSError * err;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -64,7 +64,7 @@
 // --- GetTodoItemsParams ---
 @interface UserServiceGetTodoItemsParams : NSObject
 
-@property (nonatomic, strong) NSString * ListId;
+@property (nonatomic, strong) NSString * listId;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -74,8 +74,8 @@
 // --- GetTodoItemsResults ---
 @interface UserServiceGetTodoItemsResults : NSObject
 
-@property (nonatomic, strong) NSArray * List;
-@property (nonatomic, strong) NSError * Err;
+@property (nonatomic, strong) NSArray * list;
+@property (nonatomic, strong) NSError * err;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -85,7 +85,7 @@
 // --- PutTodoListParams ---
 @interface UserServicePutTodoListParams : NSObject
 
-@property (nonatomic, strong) NSString * Name;
+@property (nonatomic, strong) NSString * name;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -95,7 +95,7 @@
 // --- PutTodoListResults ---
 @interface UserServicePutTodoListResults : NSObject
 
-@property (nonatomic, strong) NSError * Err;
+@property (nonatomic, strong) NSError * err;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -105,8 +105,8 @@
 // --- CreateTodoParams ---
 @interface UserServiceCreateTodoParams : NSObject
 
-@property (nonatomic, strong) NSString * ListId;
-@property (nonatomic, strong) NSString * Content;
+@property (nonatomic, strong) NSString * listId;
+@property (nonatomic, strong) NSString * content;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -116,7 +116,7 @@
 // --- CreateTodoResults ---
 @interface UserServiceCreateTodoResults : NSObject
 
-@property (nonatomic, strong) NSError * Err;
+@property (nonatomic, strong) NSError * err;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -126,7 +126,7 @@
 // --- DoneTodoParams ---
 @interface UserServiceDoneTodoParams : NSObject
 
-@property (nonatomic, strong) NSString * TodoItemId;
+@property (nonatomic, strong) NSString * todoItemId;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -136,7 +136,7 @@
 // --- DoneTodoResults ---
 @interface UserServiceDoneTodoResults : NSObject
 
-@property (nonatomic, strong) NSError * Err;
+@property (nonatomic, strong) NSError * err;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -146,7 +146,7 @@
 // --- UndoneTodoParams ---
 @interface UserServiceUndoneTodoParams : NSObject
 
-@property (nonatomic, strong) NSString * TodoItemId;
+@property (nonatomic, strong) NSString * todoItemId;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -156,7 +156,27 @@
 // --- UndoneTodoResults ---
 @interface UserServiceUndoneTodoResults : NSObject
 
-@property (nonatomic, strong) NSError * Err;
+@property (nonatomic, strong) NSError * err;
+
+- (id) initWithDictionary:(NSDictionary*)dict;
+- (NSDictionary*) dictionary;
+
+@end
+
+// --- UploadFileParams ---
+@interface UserServiceUploadFileParams : NSObject
+
+@property (nonatomic, strong) NSString * todoItemId;
+
+- (id) initWithDictionary:(NSDictionary*)dict;
+- (NSDictionary*) dictionary;
+
+@end
+
+// --- UploadFileResults ---
+@interface UserServiceUploadFileResults : NSObject
+
+@property (nonatomic, strong) NSError * err;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
@@ -166,33 +186,41 @@
 
 @interface UserService : NSObject
 
-@property (nonatomic, strong) NSString * Email;
-@property (nonatomic, strong) NSString * Password;
+@property (nonatomic, strong) NSString * email;
+@property (nonatomic, strong) NSString * password;
 
 - (id) initWithDictionary:(NSDictionary*)dict;
 - (NSDictionary*) dictionary;
 
 
 
-- (UserServiceGetTodoListsResults *) GetTodoLists;
+- (UserServiceGetTodoListsResults *) getTodoLists;
+- (void) getTodoLists:(void (^)(UserServiceGetTodoListsResults *results))successBlock failure:(void (^)(NSError *error))failureBlock;
 
-- (UserServiceGetTodoItemsResults *) GetTodoItems:(NSString *)listId;
+- (UserServiceGetTodoItemsResults *) getTodoItems:(NSString *)listId;
+- (void) getTodoItems:(NSString *)listId success:(void (^)(UserServiceGetTodoItemsResults *results))successBlock failure:(void (^)(NSError *error))failureBlock;
 
-- (NSError *) PutTodoList:(NSString *)name;
+- (NSError *) putTodoList:(NSString *)name;
+- (void) putTodoList:(NSString *)name success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
 
-- (NSError *) CreateTodo:(NSString *)listId content:(NSString *)content;
+- (NSError *) createTodo:(NSString *)listId content:(NSString *)content;
+- (void) createTodo:(NSString *)listId content:(NSString *)content success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
 
-- (NSError *) DoneTodo:(NSString *)todoItemId;
+- (NSError *) doneTodo:(NSString *)todoItemId;
+- (void) doneTodo:(NSString *)todoItemId success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
 
-- (NSError *) UndoneTodo:(NSString *)todoItemId;
+- (NSError *) undoneTodo:(NSString *)todoItemId;
+- (void) undoneTodo:(NSString *)todoItemId success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
+
+- (NSError *) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream;
+- (void) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
 @end
 
 
 
-@interface AppService : NSObject
-- (NSDictionary*) dictionary;
+@interface AppService : NSObject- (NSDictionary*) dictionary;
 
-
-- (UserService *) GetUserService:(NSString *)email password:(NSString *)password;
+- (UserService *) getUserService:(NSString *)email password:(NSString *)password;
+- (void) getUserService:(NSString *)email password:(NSString *)password success:(void (^)(UserService* UserService))successBlock failure:(void (^)(NSError *error))failureBlock;
 @end
 

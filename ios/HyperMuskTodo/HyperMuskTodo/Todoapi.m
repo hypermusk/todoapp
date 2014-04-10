@@ -11,6 +11,9 @@ static NSDateFormatter * _dateFormatter;
 + (Todoapi *) get {
 	if(!_todoapi) {
 		_todoapi = [[Todoapi alloc] init];
+		if ([_todoapi requestTimeoutInterval] == 0) {
+			[_todoapi setRequestTimeoutInterval:10];
+		}
 	}
 	return _todoapi;
 }
@@ -38,7 +41,7 @@ static NSDateFormatter * _dateFormatter;
 	NSDate *date;
 	[[Todoapi dateFormatter] getObjectValue:&date forString:dateString range:nil error:&error];
 	if(error) {
-		if ([[Todoapi get] Verbose]) NSLog(@"Error formatting date %@: %@ (%@)", dateString, [error localizedDescription], error);
+		if ([[Todoapi get] verbose]) NSLog(@"Error formatting date %@: %@ (%@)", dateString, [error localizedDescription], error);
 		return nil;
 	}
 	return date;
@@ -53,29 +56,80 @@ static NSDateFormatter * _dateFormatter;
 	return dateString;
 }
 
-+ (NSDictionary *) request:(NSURL*)url req:(NSDictionary *)req error:(NSError **)error {
-	NSMutableURLRequest *httpRequest = [NSMutableURLRequest requestWithURL:url];
-	[httpRequest setHTTPMethod:@"POST"];
-	[httpRequest setValue:@"application/json;charset=utf-8" forHTTPHeaderField:@"Content-Type"];
+
+
++ (NSDictionary *) request:(NSURL*)url
+		params:(NSDictionary *)params
+		stream:(NSInputStream*)stream
+		error:(NSError **)error
+		completionHandler:(void (^)(NSDictionary *results, NSError *error))completionHandler
+{
+
 	Todoapi * _api = [Todoapi get];
-	NSData *requestBody = [NSJSONSerialization dataWithJSONObject:req options:NSJSONWritingPrettyPrinted error:error];
-	if([_api Verbose]) {
+	NSMutableURLRequest *httpRequest = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:[_api requestTimeoutInterval]];
+
+	[httpRequest setHTTPMethod:@"POST"];
+	NSData *requestBody;
+	if (stream == nil) {
+		[httpRequest setValue:@"application/json;charset=utf-8" forHTTPHeaderField:@"Content-Type"];
+		requestBody = [NSJSONSerialization dataWithJSONObject:params options:NSJSONWritingPrettyPrinted error:error];
+		[httpRequest setHTTPBody:requestBody];
+	} else {
+		[httpRequest setValue:@"application/octet-stream" forHTTPHeaderField:@"Content-Type"];
+		requestBody = [NSJSONSerialization dataWithJSONObject:params options:0 error:error];
+		NSString *paramBase64 = [NSString stringWithUTF8String:[[requestBody base64EncodedDataWithOptions:NSDataBase64EncodingEndLineWithLineFeed] bytes]];
+		[httpRequest setValue:paramBase64 forHTTPHeaderField:@"X-HyperMuskStreamParams"];
+		[httpRequest setHTTPBodyStream:stream];
+	}
+
+	if([_api verbose]) {
 		NSLog(@"Request: %@", [NSString stringWithUTF8String:[requestBody bytes]]);
 	}
-	[httpRequest setHTTPBody:requestBody];
+
 	if(*error != nil) {
 		return nil;
 	}
-	NSURLResponse  *response = nil;
-	NSData *returnData = [NSURLConnection sendSynchronousRequest:httpRequest returningResponse:&response error:error];
-	if(*error != nil || returnData == nil) {
-		return nil;
+
+	if (completionHandler == nil) {
+		NSURLResponse  *response = nil;
+		NSData *returnData = [NSURLConnection sendSynchronousRequest:httpRequest returningResponse:&response error:error];
+		if(*error != nil || returnData == nil) {
+			return nil;
+		}
+		if([_api verbose]) {
+			NSLog(@"Response: %@", [NSString stringWithUTF8String:[returnData bytes]]);
+		}
+		return [NSJSONSerialization JSONObjectWithData:returnData options:NSJSONReadingAllowFragments error:error];
 	}
-	if([_api Verbose]) {
-		NSLog(@"Response: %@", [NSString stringWithUTF8String:[returnData bytes]]);
-	}
-	return [NSJSONSerialization JSONObjectWithData:returnData options:NSJSONReadingAllowFragments error:error];
+
+	NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+	[NSURLConnection sendAsynchronousRequest:httpRequest
+				queue:queue
+				completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
+					NSError *blockError = nil;
+					if([_api verbose]) {
+						NSLog(@"Response: %@", [NSString stringWithUTF8String:[data bytes]]);
+					}
+
+					NSDictionary *results = nil;
+
+					if (connectionError) {
+					    NSLog(@"Connection Error: %@", connectionError);
+					    blockError = connectionError;
+					} else if (data) {
+					    results = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&blockError];
+					    if (blockError) NSLog(@"Error decoding JSON: %@", blockError);
+					}
+
+					dispatch_async(dispatch_get_main_queue(), ^{
+					    completionHandler(results, blockError);
+					});
+				}];
+	return nil;
+
 }
+
+
 
 + (NSError *)errorWithDictionary:(NSDictionary *)dict {
 	if (![dict isKindOfClass:[NSDictionary class]]) {
@@ -111,9 +165,6 @@ static NSDateFormatter * _dateFormatter;
 // --- TodoList ---
 @implementation TodoList
 
-@synthesize Id;
-@synthesize Name;
-
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
 	if (!self) {
@@ -128,10 +179,22 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Id forKey:@"Id"];
-	[dict setValue:self.Name forKey:@"Name"];
+	[dict setValue:self.id forKey:@"Id"];
+	[dict setValue:self.name forKey:@"Name"];
 
 	return dict;
 }
@@ -140,11 +203,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- TodoItem ---
 @implementation TodoItem
-
-@synthesize Id;
-@synthesize ListId;
-@synthesize Content;
-@synthesize Done;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -162,12 +220,24 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Id forKey:@"Id"];
-	[dict setValue:self.ListId forKey:@"ListId"];
-	[dict setValue:self.Content forKey:@"Content"];
-	[dict setValue:[NSNumber numberWithBool:self.Done] forKey:@"Done"];
+	[dict setValue:self.id forKey:@"Id"];
+	[dict setValue:self.listId forKey:@"ListId"];
+	[dict setValue:self.content forKey:@"Content"];
+	[dict setValue:[NSNumber numberWithBool:self.done] forKey:@"Done"];
 
 	return dict;
 }
@@ -182,7 +252,6 @@ static NSDateFormatter * _dateFormatter;
 // --- GetTodoListsParams ---
 @implementation UserServiceGetTodoListsParams : NSObject
 
-
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
 	if (!self) {
@@ -195,6 +264,18 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
 
@@ -205,9 +286,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- GetTodoListsResults ---
 @implementation UserServiceGetTodoListsResults : NSObject
-
-@synthesize List;
-@synthesize Err;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -231,16 +309,28 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
 
 	NSMutableArray * mList = [[NSMutableArray alloc] init];
-	for (TodoList * p in List) {
+	for (TodoList * p in self.list) {
 		[mList addObject:[p dictionary]];
 	}
 	[dict setValue:mList forKey:@"List"];
 	
-	[dict setValue:self.Err forKey:@"Err"];
+	[dict setValue:self.err forKey:@"Err"];
 
 	return dict;
 }
@@ -249,8 +339,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- GetTodoItemsParams ---
 @implementation UserServiceGetTodoItemsParams : NSObject
-
-@synthesize ListId;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -265,9 +353,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.ListId forKey:@"ListId"];
+	[dict setValue:self.listId forKey:@"ListId"];
 
 	return dict;
 }
@@ -276,9 +376,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- GetTodoItemsResults ---
 @implementation UserServiceGetTodoItemsResults : NSObject
-
-@synthesize List;
-@synthesize Err;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -302,16 +399,28 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
 
 	NSMutableArray * mList = [[NSMutableArray alloc] init];
-	for (TodoItem * p in List) {
+	for (TodoItem * p in self.list) {
 		[mList addObject:[p dictionary]];
 	}
 	[dict setValue:mList forKey:@"List"];
 	
-	[dict setValue:self.Err forKey:@"Err"];
+	[dict setValue:self.err forKey:@"Err"];
 
 	return dict;
 }
@@ -320,8 +429,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- PutTodoListParams ---
 @implementation UserServicePutTodoListParams : NSObject
-
-@synthesize Name;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -336,9 +443,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Name forKey:@"Name"];
+	[dict setValue:self.name forKey:@"Name"];
 
 	return dict;
 }
@@ -347,8 +466,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- PutTodoListResults ---
 @implementation UserServicePutTodoListResults : NSObject
-
-@synthesize Err;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -363,9 +480,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Err forKey:@"Err"];
+	[dict setValue:self.err forKey:@"Err"];
 
 	return dict;
 }
@@ -374,9 +503,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- CreateTodoParams ---
 @implementation UserServiceCreateTodoParams : NSObject
-
-@synthesize ListId;
-@synthesize Content;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -392,10 +518,22 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.ListId forKey:@"ListId"];
-	[dict setValue:self.Content forKey:@"Content"];
+	[dict setValue:self.listId forKey:@"ListId"];
+	[dict setValue:self.content forKey:@"Content"];
 
 	return dict;
 }
@@ -405,8 +543,6 @@ static NSDateFormatter * _dateFormatter;
 // --- CreateTodoResults ---
 @implementation UserServiceCreateTodoResults : NSObject
 
-@synthesize Err;
-
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
 	if (!self) {
@@ -420,9 +556,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Err forKey:@"Err"];
+	[dict setValue:self.err forKey:@"Err"];
 
 	return dict;
 }
@@ -432,8 +580,6 @@ static NSDateFormatter * _dateFormatter;
 // --- DoneTodoParams ---
 @implementation UserServiceDoneTodoParams : NSObject
 
-@synthesize TodoItemId;
-
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
 	if (!self) {
@@ -447,9 +593,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.TodoItemId forKey:@"TodoItemId"];
+	[dict setValue:self.todoItemId forKey:@"TodoItemId"];
 
 	return dict;
 }
@@ -459,8 +617,6 @@ static NSDateFormatter * _dateFormatter;
 // --- DoneTodoResults ---
 @implementation UserServiceDoneTodoResults : NSObject
 
-@synthesize Err;
-
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
 	if (!self) {
@@ -474,9 +630,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Err forKey:@"Err"];
+	[dict setValue:self.err forKey:@"Err"];
 
 	return dict;
 }
@@ -485,8 +653,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- UndoneTodoParams ---
 @implementation UserServiceUndoneTodoParams : NSObject
-
-@synthesize TodoItemId;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -501,9 +667,21 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.TodoItemId forKey:@"TodoItemId"];
+	[dict setValue:self.todoItemId forKey:@"TodoItemId"];
 
 	return dict;
 }
@@ -512,8 +690,6 @@ static NSDateFormatter * _dateFormatter;
 
 // --- UndoneTodoResults ---
 @implementation UserServiceUndoneTodoResults : NSObject
-
-@synthesize Err;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -528,9 +704,95 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Err forKey:@"Err"];
+	[dict setValue:self.err forKey:@"Err"];
+
+	return dict;
+}
+
+@end
+
+// --- UploadFileParams ---
+@implementation UserServiceUploadFileParams : NSObject
+
+- (id) initWithDictionary:(NSDictionary*)dict{
+	self = [super init];
+	if (!self) {
+		return self;
+	}
+	if (![dict isKindOfClass:[NSDictionary class]]) {
+		return self;
+	}
+	[self setTodoItemId:[dict valueForKey:@"TodoItemId"]];
+
+	return self;
+}
+
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
+- (NSDictionary*) dictionary {
+	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
+	[dict setValue:self.todoItemId forKey:@"TodoItemId"];
+
+	return dict;
+}
+
+@end
+
+// --- UploadFileResults ---
+@implementation UserServiceUploadFileResults : NSObject
+
+- (id) initWithDictionary:(NSDictionary*)dict{
+	self = [super init];
+	if (!self) {
+		return self;
+	}
+	if (![dict isKindOfClass:[NSDictionary class]]) {
+		return self;
+	}
+	[self setErr:[Todoapi errorWithDictionary:[dict valueForKey:@"Err"]]];
+
+	return self;
+}
+
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
+- (NSDictionary*) dictionary {
+	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
+	[dict setValue:self.err forKey:@"Err"];
 
 	return dict;
 }
@@ -542,9 +804,6 @@ static NSDateFormatter * _dateFormatter;
 
 @implementation UserService : NSObject
 
-
-@synthesize Email;
-@synthesize Password;
 
 - (id) initWithDictionary:(NSDictionary*)dict{
 	self = [super init];
@@ -560,10 +819,22 @@ static NSDateFormatter * _dateFormatter;
 	return self;
 }
 
+- (id)initWithCoder:(NSCoder *)decoder {
+    NSDictionary *dict = [decoder decodeObjectForKey:@"dict"];
+
+    self = [self initWithDictionary:dict];
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)encoder {
+    [encoder encodeObject:[self dictionary] forKey:@"dict"];
+}
+
 - (NSDictionary*) dictionary {
 	NSMutableDictionary * dict = [[NSMutableDictionary alloc] init];
-	[dict setValue:self.Email forKey:@"Email"];
-	[dict setValue:self.Password forKey:@"Password"];
+	[dict setValue:self.email forKey:@"Email"];
+	[dict setValue:self.password forKey:@"Password"];
 
 	return dict;
 }
@@ -571,20 +842,23 @@ static NSDateFormatter * _dateFormatter;
 
 
 // --- GetTodoLists ---
-- (UserServiceGetTodoListsResults *) GetTodoLists {
+- (UserServiceGetTodoListsResults *) getTodoLists {
 	
 	UserServiceGetTodoListsResults *results = [UserServiceGetTodoListsResults alloc];
 	UserServiceGetTodoListsParams *params = [[UserServiceGetTodoListsParams alloc] init];
 	
 	Todoapi * _api = [Todoapi get];
-	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/GetTodoLists.json", [_api BaseURL]]];
-	if([_api Verbose]) {
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/GetTodoLists.json", [_api baseURL]]];
+	if([_api verbose]) {
 		NSLog(@"Requesting URL: %@", url);
 	}
 	NSError *error;
-	NSDictionary * dict = [Todoapi request:url req:[NSDictionary dictionaryWithObjectsAndKeys: [self dictionary], @"This", [params dictionary], @"Params", nil] error:&error];
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:nil error:&error completionHandler:nil];
+
 	if(error != nil) {
-		if([_api Verbose]) {
+		if([_api verbose]) {
 			NSLog(@"Error: %@", error);
 		}
 		results = [results init];
@@ -596,22 +870,57 @@ static NSDateFormatter * _dateFormatter;
 	return results;
 }
 
+- (void) getTodoLists:(void (^)(UserServiceGetTodoListsResults *results))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServiceGetTodoListsParams *params = [[UserServiceGetTodoListsParams alloc] init];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/GetTodoLists.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:nil error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServiceGetTodoListsResults *results = [UserServiceGetTodoListsResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results);
+			}
+		}];
+	
+}
+
 // --- GetTodoItems ---
-- (UserServiceGetTodoItemsResults *) GetTodoItems:(NSString *)listId {
+- (UserServiceGetTodoItemsResults *) getTodoItems:(NSString *)listId {
 	
 	UserServiceGetTodoItemsResults *results = [UserServiceGetTodoItemsResults alloc];
 	UserServiceGetTodoItemsParams *params = [[UserServiceGetTodoItemsParams alloc] init];
 	[params setListId:listId];
 	
 	Todoapi * _api = [Todoapi get];
-	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/GetTodoItems.json", [_api BaseURL]]];
-	if([_api Verbose]) {
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/GetTodoItems.json", [_api baseURL]]];
+	if([_api verbose]) {
 		NSLog(@"Requesting URL: %@", url);
 	}
 	NSError *error;
-	NSDictionary * dict = [Todoapi request:url req:[NSDictionary dictionaryWithObjectsAndKeys: [self dictionary], @"This", [params dictionary], @"Params", nil] error:&error];
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:nil error:&error completionHandler:nil];
+
 	if(error != nil) {
-		if([_api Verbose]) {
+		if([_api verbose]) {
 			NSLog(@"Error: %@", error);
 		}
 		results = [results init];
@@ -623,35 +932,104 @@ static NSDateFormatter * _dateFormatter;
 	return results;
 }
 
+- (void) getTodoItems:(NSString *)listId success:(void (^)(UserServiceGetTodoItemsResults *results))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServiceGetTodoItemsParams *params = [[UserServiceGetTodoItemsParams alloc] init];
+		[params setListId:listId];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/GetTodoItems.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:nil error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServiceGetTodoItemsResults *results = [UserServiceGetTodoItemsResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results);
+			}
+		}];
+	
+}
+
 // --- PutTodoList ---
-- (NSError *) PutTodoList:(NSString *)name {
+- (NSError *) putTodoList:(NSString *)name {
 	
 	UserServicePutTodoListResults *results = [UserServicePutTodoListResults alloc];
 	UserServicePutTodoListParams *params = [[UserServicePutTodoListParams alloc] init];
 	[params setName:name];
 	
 	Todoapi * _api = [Todoapi get];
-	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/PutTodoList.json", [_api BaseURL]]];
-	if([_api Verbose]) {
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/PutTodoList.json", [_api baseURL]]];
+	if([_api verbose]) {
 		NSLog(@"Requesting URL: %@", url);
 	}
 	NSError *error;
-	NSDictionary * dict = [Todoapi request:url req:[NSDictionary dictionaryWithObjectsAndKeys: [self dictionary], @"This", [params dictionary], @"Params", nil] error:&error];
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:nil error:&error completionHandler:nil];
+
 	if(error != nil) {
-		if([_api Verbose]) {
+		if([_api verbose]) {
 			NSLog(@"Error: %@", error);
 		}
 		results = [results init];
 		[results setErr:error];
-		return results.Err;
+		return results.err;
 	}
 	results = [results initWithDictionary: dict];
 	
-	return results.Err;
+	return results.err;
+}
+
+- (void) putTodoList:(NSString *)name success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServicePutTodoListParams *params = [[UserServicePutTodoListParams alloc] init];
+		[params setName:name];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/PutTodoList.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:nil error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServicePutTodoListResults *results = [UserServicePutTodoListResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results.err);
+			}
+		}];
+	
 }
 
 // --- CreateTodo ---
-- (NSError *) CreateTodo:(NSString *)listId content:(NSString *)content {
+- (NSError *) createTodo:(NSString *)listId content:(NSString *)content {
 	
 	UserServiceCreateTodoResults *results = [UserServiceCreateTodoResults alloc];
 	UserServiceCreateTodoParams *params = [[UserServiceCreateTodoParams alloc] init];
@@ -659,77 +1037,249 @@ static NSDateFormatter * _dateFormatter;
 	[params setContent:content];
 	
 	Todoapi * _api = [Todoapi get];
-	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/CreateTodo.json", [_api BaseURL]]];
-	if([_api Verbose]) {
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/CreateTodo.json", [_api baseURL]]];
+	if([_api verbose]) {
 		NSLog(@"Requesting URL: %@", url);
 	}
 	NSError *error;
-	NSDictionary * dict = [Todoapi request:url req:[NSDictionary dictionaryWithObjectsAndKeys: [self dictionary], @"This", [params dictionary], @"Params", nil] error:&error];
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:nil error:&error completionHandler:nil];
+
 	if(error != nil) {
-		if([_api Verbose]) {
+		if([_api verbose]) {
 			NSLog(@"Error: %@", error);
 		}
 		results = [results init];
 		[results setErr:error];
-		return results.Err;
+		return results.err;
 	}
 	results = [results initWithDictionary: dict];
 	
-	return results.Err;
+	return results.err;
+}
+
+- (void) createTodo:(NSString *)listId content:(NSString *)content success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServiceCreateTodoParams *params = [[UserServiceCreateTodoParams alloc] init];
+		[params setListId:listId];
+		[params setContent:content];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/CreateTodo.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:nil error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServiceCreateTodoResults *results = [UserServiceCreateTodoResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results.err);
+			}
+		}];
+	
 }
 
 // --- DoneTodo ---
-- (NSError *) DoneTodo:(NSString *)todoItemId {
+- (NSError *) doneTodo:(NSString *)todoItemId {
 	
 	UserServiceDoneTodoResults *results = [UserServiceDoneTodoResults alloc];
 	UserServiceDoneTodoParams *params = [[UserServiceDoneTodoParams alloc] init];
 	[params setTodoItemId:todoItemId];
 	
 	Todoapi * _api = [Todoapi get];
-	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/DoneTodo.json", [_api BaseURL]]];
-	if([_api Verbose]) {
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/DoneTodo.json", [_api baseURL]]];
+	if([_api verbose]) {
 		NSLog(@"Requesting URL: %@", url);
 	}
 	NSError *error;
-	NSDictionary * dict = [Todoapi request:url req:[NSDictionary dictionaryWithObjectsAndKeys: [self dictionary], @"This", [params dictionary], @"Params", nil] error:&error];
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:nil error:&error completionHandler:nil];
+
 	if(error != nil) {
-		if([_api Verbose]) {
+		if([_api verbose]) {
 			NSLog(@"Error: %@", error);
 		}
 		results = [results init];
 		[results setErr:error];
-		return results.Err;
+		return results.err;
 	}
 	results = [results initWithDictionary: dict];
 	
-	return results.Err;
+	return results.err;
+}
+
+- (void) doneTodo:(NSString *)todoItemId success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServiceDoneTodoParams *params = [[UserServiceDoneTodoParams alloc] init];
+		[params setTodoItemId:todoItemId];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/DoneTodo.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:nil error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServiceDoneTodoResults *results = [UserServiceDoneTodoResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results.err);
+			}
+		}];
+	
 }
 
 // --- UndoneTodo ---
-- (NSError *) UndoneTodo:(NSString *)todoItemId {
+- (NSError *) undoneTodo:(NSString *)todoItemId {
 	
 	UserServiceUndoneTodoResults *results = [UserServiceUndoneTodoResults alloc];
 	UserServiceUndoneTodoParams *params = [[UserServiceUndoneTodoParams alloc] init];
 	[params setTodoItemId:todoItemId];
 	
 	Todoapi * _api = [Todoapi get];
-	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/UndoneTodo.json", [_api BaseURL]]];
-	if([_api Verbose]) {
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/UndoneTodo.json", [_api baseURL]]];
+	if([_api verbose]) {
 		NSLog(@"Requesting URL: %@", url);
 	}
 	NSError *error;
-	NSDictionary * dict = [Todoapi request:url req:[NSDictionary dictionaryWithObjectsAndKeys: [self dictionary], @"This", [params dictionary], @"Params", nil] error:&error];
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:nil error:&error completionHandler:nil];
+
 	if(error != nil) {
-		if([_api Verbose]) {
+		if([_api verbose]) {
 			NSLog(@"Error: %@", error);
 		}
 		results = [results init];
 		[results setErr:error];
-		return results.Err;
+		return results.err;
 	}
 	results = [results initWithDictionary: dict];
 	
-	return results.Err;
+	return results.err;
+}
+
+- (void) undoneTodo:(NSString *)todoItemId success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServiceUndoneTodoParams *params = [[UserServiceUndoneTodoParams alloc] init];
+		[params setTodoItemId:todoItemId];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/UndoneTodo.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:nil error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServiceUndoneTodoResults *results = [UserServiceUndoneTodoResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results.err);
+			}
+		}];
+	
+}
+
+// --- UploadFile ---
+- (NSError *) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream {
+	
+	UserServiceUploadFileResults *results = [UserServiceUploadFileResults alloc];
+	UserServiceUploadFileParams *params = [[UserServiceUploadFileParams alloc] init];
+	[params setTodoItemId:todoItemId];
+	
+	Todoapi * _api = [Todoapi get];
+	NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/UploadFile.json", [_api baseURL]]];
+	if([_api verbose]) {
+		NSLog(@"Requesting URL: %@", url);
+	}
+	NSError *error;
+	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:stream error:&error completionHandler:nil];
+
+	if(error != nil) {
+		if([_api verbose]) {
+			NSLog(@"Error: %@", error);
+		}
+		results = [results init];
+		[results setErr:error];
+		return results.err;
+	}
+	results = [results initWithDictionary: dict];
+	
+	return results.err;
+}
+
+- (void) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserServiceUploadFileParams *params = [[UserServiceUploadFileParams alloc] init];
+		[params setTodoItemId:todoItemId];
+		
+
+		Todoapi * _api = [Todoapi get];
+		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/UserService/UploadFile.json", [_api baseURL]]];
+		if([_api verbose]) {
+			NSLog(@"Requesting URL: %@", url);
+		}
+		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
+		NSError *nilerror = nil;
+
+		[Todoapi request:url params:paramsDict stream:stream error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+
+			if (error && failureBlock) {
+				if([_api verbose]) {
+					NSLog(@"Error: %@", error);
+				}
+
+				failureBlock(error);
+			}
+
+			if (successBlock) {
+				UserServiceUploadFileResults *results = [UserServiceUploadFileResults alloc];
+				results = [results initWithDictionary: data];
+				successBlock(results.err);
+			}
+		}];
+	
 }
 @end
 
@@ -741,7 +1291,7 @@ static NSDateFormatter * _dateFormatter;
 
 
 // --- GetUserService ---
-- (UserService *) GetUserService:(NSString *)email password:(NSString *)password {
+- (UserService *) getUserService:(NSString *)email password:(NSString *)password {
 	
 	UserService *results = [UserService alloc];
 	[results setEmail:email];
@@ -749,7 +1299,16 @@ static NSDateFormatter * _dateFormatter;
 	
 	return results;
 }
+
+- (void) getUserService:(NSString *)email password:(NSString *)password success:(void (^)(UserService* UserService))successBlock failure:(void (^)(NSError *error))failureBlock {
+	
+		UserService *results = [UserService alloc];
+		
+			[results setEmail:email];
+		
+			[results setPassword:password];
+		
+	
+}
 @end
-
-
 
