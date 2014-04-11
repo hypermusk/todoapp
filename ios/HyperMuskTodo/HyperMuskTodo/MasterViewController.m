@@ -59,7 +59,7 @@
 //    if ([[segue identifier] isEqualToString:@"selectTodoList"]) {
 //    }
     
-    [userService uploadFile:@"222" stream:[NSInputStream inputStreamWithFileAtPath:@"/Users/sunfmin/Downloads/Qortex-card-CN-Felix_Sun.pdf"] success: ^(NSError *error) {
+    [userService uploadFile:@"222" file:[NSInputStream inputStreamWithFileAtPath:@"/Users/sunfmin/Downloads/Qortex-card-CN-Felix_Sun.pdf"] success: ^(NSError *error) {
         NSLog(@"Success! %@", error);
     }
     failure:^(NSError *error) {

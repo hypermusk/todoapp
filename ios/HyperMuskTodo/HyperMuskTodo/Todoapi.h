@@ -212,8 +212,8 @@
 - (NSError *) undoneTodo:(NSString *)todoItemId;
 - (void) undoneTodo:(NSString *)todoItemId success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
 
-- (NSError *) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream;
-- (void) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
+- (NSError *) uploadFile:(NSString *)todoItemId file:(NSInputStream*)file;
+- (void) uploadFile:(NSString *)todoItemId file:(NSInputStream*)file success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock;
 @end
 
 

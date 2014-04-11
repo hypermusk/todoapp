@@ -1220,7 +1220,7 @@ static NSDateFormatter * _dateFormatter;
 }
 
 // --- UploadFile ---
-- (NSError *) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream {
+- (NSError *) uploadFile:(NSString *)todoItemId file:(NSInputStream*)file {
 	
 	UserServiceUploadFileResults *results = [UserServiceUploadFileResults alloc];
 	UserServiceUploadFileParams *params = [[UserServiceUploadFileParams alloc] init];
@@ -1234,7 +1234,7 @@ static NSDateFormatter * _dateFormatter;
 	NSError *error;
 	NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
 
-	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:stream error:&error completionHandler:nil];
+	NSDictionary * dict = [Todoapi request:url params:paramsDict stream:file error:&error completionHandler:nil];
 
 	if(error != nil) {
 		if([_api verbose]) {
@@ -1249,7 +1249,7 @@ static NSDateFormatter * _dateFormatter;
 	return results.err;
 }
 
-- (void) uploadFile:(NSString *)todoItemId stream:(NSInputStream*)stream success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
+- (void) uploadFile:(NSString *)todoItemId file:(NSInputStream*)file success:(void (^)(NSError *error))successBlock failure:(void (^)(NSError *error))failureBlock {
 	
 		UserServiceUploadFileParams *params = [[UserServiceUploadFileParams alloc] init];
 		[params setTodoItemId:todoItemId];
@@ -1263,7 +1263,7 @@ static NSDateFormatter * _dateFormatter;
 		NSDictionary *paramsDict = @{@"This": [self dictionary], @"Params": [params dictionary]};
 		NSError *nilerror = nil;
 
-		[Todoapi request:url params:paramsDict stream:stream error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
+		[Todoapi request:url params:paramsDict stream:file error:&nilerror completionHandler:^(NSDictionary *data, NSError *error) {;
 
 			if (error && failureBlock) {
 				if([_api verbose]) {
