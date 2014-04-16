@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -24,6 +23,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
 public class Todoapi {
 	public static Todoapi _instance;
@@ -115,6 +115,8 @@ public class Todoapi {
 				conn.setRequestProperty("Content-Type", "application/octet-stream");
 				conn.setRequestProperty("X-HyperMuskStreamParams", Base64.encodeToString(body.getBytes(), Base64.NO_WRAP));
 			}
+			conn.setRequestProperty("Accept-Encoding", "gzip, deflate");
+
 			conn.setDoInput(true);
 			conn.setDoOutput(true);
 
@@ -128,12 +130,15 @@ public class Todoapi {
 				while ((n = stream.read(buffer)) > 0) {
 					wr.write(buffer, 0, n);
 				}
+				stream.close();
 			}
 			wr.flush();
 			wr.close();
 
 			InputStream is = conn.getInputStream();
-
+			if (conn.getContentEncoding().equals("gzip")) {
+				is = new GZIPInputStream(is);
+			}
 			r.setReader(new InputStreamReader(is));
 
 		} catch (IOException e) {

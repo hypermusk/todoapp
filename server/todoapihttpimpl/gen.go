@@ -7,6 +7,7 @@ import (
 	"time"
 	"io"
 	"strings"
+	"compress/gzip"
 	"encoding/json"
 	"encoding/base64"
 	"github.com/hypermusk/todoapp/todoapi"
@@ -87,6 +88,13 @@ func UserService_GetTodoLists(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	jsonpCallback := r.URL.Query().Get("callback")
@@ -108,7 +116,13 @@ func UserService_GetTodoLists(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_GetTodoLists_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
@@ -156,6 +170,13 @@ func UserService_GetTodoItems(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	jsonpCallback := r.URL.Query().Get("callback")
@@ -177,7 +198,13 @@ func UserService_GetTodoItems(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_GetTodoItems_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
@@ -224,6 +251,13 @@ func UserService_PutTodoList(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	jsonpCallback := r.URL.Query().Get("callback")
@@ -245,7 +279,13 @@ func UserService_PutTodoList(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_PutTodoList_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
@@ -293,6 +333,13 @@ func UserService_CreateTodo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	jsonpCallback := r.URL.Query().Get("callback")
@@ -314,7 +361,13 @@ func UserService_CreateTodo(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_CreateTodo_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
@@ -361,6 +414,13 @@ func UserService_DoneTodo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	jsonpCallback := r.URL.Query().Get("callback")
@@ -382,7 +442,13 @@ func UserService_DoneTodo(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_DoneTodo_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
@@ -429,6 +495,13 @@ func UserService_UndoneTodo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	jsonpCallback := r.URL.Query().Get("callback")
@@ -450,7 +523,13 @@ func UserService_UndoneTodo(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_UndoneTodo_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
@@ -497,6 +576,13 @@ func UserService_UploadFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	gzipOk := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if gzipOk {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+
 	var body io.Reader
 
 	body = base64.NewDecoder(base64.StdEncoding, strings.NewReader(r.Header.Get(StreamHTTPHeaderFieldName)))
@@ -508,7 +594,13 @@ func UserService_UploadFile(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(&p)
 	var result UserService_UploadFile_Results
-	enc := json.NewEncoder(w)
+	var mayGzipWriter io.Writer = w
+	if gzipOk {
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		mayGzipWriter = gzipWriter
+	}
+	enc := json.NewEncoder(mayGzipWriter)
 	if err != nil {
 		result.Err = NewError(err)
 		enc.Encode(result)
